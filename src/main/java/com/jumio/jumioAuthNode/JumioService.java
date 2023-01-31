@@ -41,16 +41,21 @@ public interface JumioService {
         /**
          * EU Server.
          */
-        EU;
+        EU,
+        /**
+         * SG Server.
+         */
+        SG;
+    	
 
         @Override
         public String toString() {
             switch(this) {
-                case US: return "https://netverify.com";
-                case EU: return "https://lon.netverify.com";
+                case US: return "amer-1.jumio.ai";
+                case EU: return "emea-1.jumio.ai";
+                case SG: return "apac-1.jumio.ai";
                 default: throw new IllegalArgumentException();
             }
         }
     }
 }
-

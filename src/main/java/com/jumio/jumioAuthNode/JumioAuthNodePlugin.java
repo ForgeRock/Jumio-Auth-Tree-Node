@@ -16,16 +16,16 @@
 
 package com.jumio.jumioAuthNode;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Map;
+
 import org.forgerock.openam.auth.node.api.AbstractNodeAmPlugin;
 import org.forgerock.openam.auth.node.api.Node;
 import org.forgerock.openam.plugins.PluginException;
 import org.forgerock.openam.plugins.StartupType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Map;
 
 
 /**
@@ -63,7 +63,7 @@ import java.util.Map;
  */
 public class JumioAuthNodePlugin extends AbstractNodeAmPlugin {
 
-    static private String currentVersion = "1.0.0";
+    static private String currentVersion = "1.0.15";
     private final Logger logger = LoggerFactory.getLogger(JumioAuthNodePlugin.class);
 
 
