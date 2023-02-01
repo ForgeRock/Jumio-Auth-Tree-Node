@@ -17,13 +17,16 @@
 package com.jumio.jumioAuthNode;
 
 import static com.jumio.jumioAuthNode.JumioConstants.ACCOUNT_ID;
+import static com.jumio.jumioAuthNode.JumioConstants.ACQUIRED;
 import static com.jumio.jumioAuthNode.JumioConstants.ATTRIBUTES;
 import static com.jumio.jumioAuthNode.JumioConstants.DECISION;
 import static com.jumio.jumioAuthNode.JumioConstants.ERROR_OUTCOME;
+import static com.jumio.jumioAuthNode.JumioConstants.INITIATED;
 import static com.jumio.jumioAuthNode.JumioConstants.NOT_EXECUTED;
 import static com.jumio.jumioAuthNode.JumioConstants.OUTCOME;
 import static com.jumio.jumioAuthNode.JumioConstants.PASSED;
 import static com.jumio.jumioAuthNode.JumioConstants.PENDING_OUTCOME;
+import static com.jumio.jumioAuthNode.JumioConstants.PROCESSED;
 import static com.jumio.jumioAuthNode.JumioConstants.REJECTED;
 import static com.jumio.jumioAuthNode.JumioConstants.STATUS;
 import static com.jumio.jumioAuthNode.JumioConstants.TYPE;
@@ -34,9 +37,6 @@ import static com.jumio.jumioAuthNode.JumioConstants.USER_NAMES;
 import static com.jumio.jumioAuthNode.JumioConstants.WARNING;
 import static com.jumio.jumioAuthNode.JumioConstants.WORKFLOW_EXECUTION;
 import static com.jumio.jumioAuthNode.JumioConstants.WORKFLOW_EXECUTION_ID;
-import static com.jumio.jumioAuthNode.JumioConstants.INITIATED;
-import static com.jumio.jumioAuthNode.JumioConstants.ACQUIRED;
-import static com.jumio.jumioAuthNode.JumioConstants.PROCESSED;
 import static org.forgerock.json.JsonValue.array;
 import static org.forgerock.json.JsonValue.json;
 import static org.forgerock.json.JsonValue.object;
@@ -62,10 +62,12 @@ import org.forgerock.openam.auth.node.api.TreeContext;
 import org.forgerock.openam.core.realms.Realm;
 import org.forgerock.openam.sm.AnnotatedServiceRegistry;
 import org.forgerock.util.i18n.PreferredLocales;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 
 import com.google.inject.assistedinject.Assisted;
 import com.iplanet.sso.SSOException;
@@ -212,72 +214,74 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 				switch (outcome) {
 				case PASSED:
 					sharedState.put("RESULTS", results.toString());
-					Map<String, String> map = config.cfgAccountMapperConfiguration();
-					try {
-						JsonValue attributes = json(object(map.size() + 1));
-						String username = sharedState.get(USERNAME).asString();
-						List<Object> uidArray = array();
-						uidArray.add(username);
-						attributes.put(UID, uidArray);
+					JSONArray extractionJSON = results.getJSONObject("capabilities").getJSONArray("extraction");
+					if (extractionJSON!=null && extractionJSON.get(0)!=null && ((JSONObject)extractionJSON.get(0)).getJSONObject("data")!=null) {
+						Map<String, Object> flattenedJsonMap = ((JSONObject)extractionJSON.get(0)).getJSONObject("data").toMap();						
+						Map<String, String> map2 = config.cfgAccountMapperConfiguration();
+						try {
+							JsonValue attributes = json(object(map2.size() + 1));
+							String username = sharedState.get(USERNAME).asString();
+							List<Object> uidArray = array();
+							uidArray.add(username);
+							attributes.put(UID, uidArray);
 
-						for (Map.Entry<String, String> entry : map.entrySet()) {
-							attributes.put(entry.getValue(), array(results.getString(entry.getKey())));
+							for (Map.Entry<String, String> entry : map2.entrySet()) {
+								attributes.put(entry.getValue(), array(flattenedJsonMap.get(entry.getKey())));
+							}
+							JsonValue userInfo = json(object());
+							userInfo.put(ATTRIBUTES, attributes);
+							JsonValue userNames = json(object(1));
+							List<Object> usernameArray = array();
+							usernameArray.add(username);
+
+							userNames.put(USERNAME, usernameArray);
+							userInfo.put(USER_NAMES, userNames);
+
+							sharedState.put(USER_INFO, userInfo);
+
+						} catch (JSONException je) {
+							if (logger.isInfoEnabled()) {
+								logger.info(loggerPrefix + je.getMessage());
+							}
+							throw new NodeProcessException(je);
 						}
-						JsonValue userInfo = json(object());
-						userInfo.put(ATTRIBUTES, attributes);
-						JsonValue userNames = json(object(1));
-						List<Object> usernameArray = array();
-						usernameArray.add(username);
-
-						userNames.put(USERNAME, usernameArray);
-						userInfo.put(USER_NAMES, userNames);
-
-						sharedState.put(USER_INFO, userInfo);
-
-					} catch (JSONException je) {
-						if (logger.isInfoEnabled()) {
-							logger.info(loggerPrefix + je.getMessage());
-						}
-						throw new NodeProcessException(je);
 					}
-
 					return Action.goTo(PASSED).replaceSharedState(sharedState).build();
 				case REJECTED:
 					return Action.goTo(REJECTED).build();
 				case WARNING:
 					sharedState.put("RESULTS", results.toString());
-					Map<String, Object> resultMap = results.toMap();
-					for (Iterator<String> it = resultMap.keySet().iterator(); it.hasNext();) {
-						String thisKey = it.next();
-						System.out.println("TESTTESTTEST:   HERE this MAP Entry= " + thisKey + " : " + resultMap.get(thisKey));
-					}
-					Map<String, String> map2 = config.cfgAccountMapperConfiguration();
-					try {
-						JsonValue attributes = json(object(map2.size() + 1));
-						String username = sharedState.get(USERNAME).asString();
-						List<Object> uidArray = array();
-						uidArray.add(username);
-						attributes.put(UID, uidArray);
+					JSONArray extractionJSON2 = results.getJSONObject("capabilities").getJSONArray("extraction");
+					if (extractionJSON2!=null && extractionJSON2.get(0)!=null && ((JSONObject)extractionJSON2.get(0)).getJSONObject("data")!=null) {
+						Map<String, Object> flattenedJsonMap = ((JSONObject)extractionJSON2.get(0)).getJSONObject("data").toMap();						
+						Map<String, String> map2 = config.cfgAccountMapperConfiguration();
+						try {
+							JsonValue attributes = json(object(map2.size() + 1));
+							String username = sharedState.get(USERNAME).asString();
+							List<Object> uidArray = array();
+							uidArray.add(username);
+							attributes.put(UID, uidArray);
 
-						for (Map.Entry<String, String> entry : map2.entrySet()) {
-							attributes.put(entry.getValue(), array(results.getString(entry.getKey())));
+							for (Map.Entry<String, String> entry : map2.entrySet()) {
+								attributes.put(entry.getValue(), array(flattenedJsonMap.get(entry.getKey())));
+							}
+							JsonValue userInfo = json(object());
+							userInfo.put(ATTRIBUTES, attributes);
+							JsonValue userNames = json(object(1));
+							List<Object> usernameArray = array();
+							usernameArray.add(username);
+
+							userNames.put(USERNAME, usernameArray);
+							userInfo.put(USER_NAMES, userNames);
+
+							sharedState.put(USER_INFO, userInfo);
+
+						} catch (JSONException je) {
+							if (logger.isInfoEnabled()) {
+								logger.info(loggerPrefix + je.getMessage());
+							}
+							throw new NodeProcessException(je);
 						}
-						JsonValue userInfo = json(object());
-						userInfo.put(ATTRIBUTES, attributes);
-						JsonValue userNames = json(object(1));
-						List<Object> usernameArray = array();
-						usernameArray.add(username);
-
-						userNames.put(USERNAME, usernameArray);
-						userInfo.put(USER_NAMES, userNames);
-
-						sharedState.put(USER_INFO, userInfo);
-
-					} catch (JSONException je) {
-						if (logger.isInfoEnabled()) {
-							logger.info(loggerPrefix + je.getMessage());
-						}
-						throw new NodeProcessException(je);
 					}
 					return Action.goTo(WARNING).replaceSharedState(sharedState).build();
 				default:
