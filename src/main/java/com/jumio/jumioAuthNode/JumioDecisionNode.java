@@ -202,10 +202,6 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 				logger.info(loggerPrefix + "Id verification complete.  Proceeding");
 				JSONObject results = getVerificationResults(wfExID, acctID);
 
-				if (logger.isInfoEnabled()) {
-					logger.info(loggerPrefix + "Workflow Execution ID: " + wfExID + " Status: " + jumioStatus
-							+ " outcome: " + results.getString(OUTCOME));
-				}
 
 				// TODO: Call cfgAccountMapperConfiguration to get which Jumio attributes the
 				// customer wants to map to FR
