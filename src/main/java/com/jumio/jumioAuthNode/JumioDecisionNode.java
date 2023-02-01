@@ -43,11 +43,10 @@ import static org.forgerock.json.JsonValue.object;
 
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.ResourceBundle;
 
 import javax.inject.Inject;
 
@@ -68,7 +67,7 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
+import com.google.common.collect.ImmutableList;
 import com.google.inject.assistedinject.Assisted;
 import com.iplanet.sso.SSOException;
 import com.sun.identity.sm.SMSException;
@@ -81,6 +80,7 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 	private final JumioService serviceConfig;
 	private final Config config;
 	private String loggerPrefix = "[Jumio Decision Node][Marketplace] ";
+	private static final String BUNDLE = JumioDecisionNode.class.getName();
 
 	/**
 	 * Configuration for the node.
@@ -308,16 +308,15 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 	public static class JumioDecisionOutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
 		@Override
 		public List<Outcome> getOutcomes(PreferredLocales locales, JsonValue nodeAttributes) {
-			return new ArrayList<Outcome>() {
-				{
-					add(new Outcome(PASSED, PASSED));
-					add(new Outcome(NOT_EXECUTED, NOT_EXECUTED));
-					add(new Outcome(REJECTED, REJECTED));
-					add(new Outcome(WARNING, WARNING));
-					add(new Outcome(PENDING_OUTCOME, PENDING_OUTCOME));
-					add(new Outcome(ERROR_OUTCOME, ERROR_OUTCOME));
-				}
-			};
+			ResourceBundle bundle = locales.getBundleInPreferredLocale(BUNDLE,
+					JumioDecisionOutcomeProvider.class.getClassLoader());
+			return ImmutableList.of(
+				new Outcome(PASSED,  bundle.getString("PassedOutcome")),
+				new Outcome(NOT_EXECUTED,  bundle.getString("NotExecutedOutcome")),
+				new Outcome(REJECTED,  bundle.getString("RejectedOutcome")),
+				new Outcome(WARNING,  bundle.getString("WarningOutcome")),
+				new Outcome(PENDING_OUTCOME,  bundle.getString("PendingOutcome")),
+				new Outcome(ERROR_OUTCOME,  bundle.getString("ErrorOutcome")));
 		}
 	}
 

@@ -63,7 +63,7 @@ import org.slf4j.LoggerFactory;
  */
 public class JumioAuthNodePlugin extends AbstractNodeAmPlugin {
 
-    static private String currentVersion = "1.0.17";
+    static private String currentVersion = "1.0.18";
     private final Logger logger = LoggerFactory.getLogger(JumioAuthNodePlugin.class);
 
 
