@@ -1,156 +1,60 @@
-# Forgerock & Jumio Implementation Guide
+# Jumio Cloud Nodes 
+This is a reference manual and configuration guide for the Netverify integration with Forgerock Identity Cloud. 
 
-This is a reference manual and configuration guide for the Netverify integration with Forgerock. It describes how to create the flow tree for users to pass through the Netverify journey.
+## What is Jumio ID Verification?
+Jumio's ID Verification allows customers to easily and securely capture and submit their government-issued ID documents. It performs real-time ID verification using machine learning, helping you deter fraud and meet regulatory requirements. 
+Jumio validates the user’s ID, corroborates it with a selfie and uses advanced liveness detection to ensure the person is actually present. 
 
-## Table of Contents
+![Image 1](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud1.png)
 
-- [What is Jumio?](#What-is-Jumio?)
-- [What is in this package?](#What-is-in-this-package?)
-- [Installation Steps](#Installation-Steps)
-- [Login to Forgerock](#Login-to-Forgerock)
-- [Select a Realm](#Select-a-Realm)
-	- [Create a Realm](#Create-a-Realm)
-- [Setting up Netverify](#Setting-up-Netverify)
-	- [Netverify Settings](#netverify-settings)
-	- [Creating a Login Workflow](#creating-a-login-workflow)
-	- [Testing the Tree](#testing-the-tree)
+## Nodes Description 
+- Jumio Initiate Node- This node will initiate Jumio’s NetVerify service. This service will scan a user’s ID as well as their face to verify their identity.
+* Jumio Decision Node- This node will decide if the user is able to successfully login depending on the validity of their NetVerify scan. If the NetVerify service is able to successfully validate the user’s identity, they will be successfully authenticated. In the case of unreadable scans or unsupported types they will be led back to the Initiate node to redo the NetVerify process. And finally in the case of failed or fraud detection, the user will be met with a login failure. 
 
+## Set up the Jumio Service in ForgeRock Cloud
+1. Sign into the Jumio Customer Portal 
+![Image2](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud2.png)
 
-## What is Jumio?
+2. In the toggle menu on the left hand sign go to Settings > Managed Services > Identity Verification.
+![Image3](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud3.png) 
+ 
+3. Go to API Credentials > OAuth2 Clients
+![Image4](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud4.png) 
 
-Jumio's end-to-end identity verification and authentication solutions fight fraud, maintain compliance and onboard good customer's faster.
+4. Click ‘Generate a new API token’ and select both the ‘Initialize’ and ‘Retrieve & Delete’ permissions.
+![Image5](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud5.png) 
 
-## What is in this package?
+5. Login to the ForgeRock Cloud tenant. 
+6. In the left-hand side toggle menu select Access Management.
 
-Once built into Forgerock, two nodes will be available.
+7. Go to ‘Realms’ them, on the left hand-side toggle menu select ‘Services’
+![Image6](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud6.png) 
+8. In the drop-down menu for ‘Choose a service type’ select ‘Jumio Service’.
+![Image7](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud7%20.png)
+9. Configure the service by filling out the fields. For ‘Token’ and ‘Secret’ use the new API credentials generated from the Jumio Service. 
+![Image8](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud8%20.png)
 
-- Jumio Initiate node
-- Jumio Decision node
 
-## Installation Steps
+## Configure the Tree in ForgeRock Cloud
+1. Go to the ForgeRock Cloud homepage > Journeys > + New Journey
+2. Name the Journey ‘i.e. JumioTest’ for Identity Object select ‘Alpha realm-    Users managed/alpha_user
+3. Drag & drop the nodes to recreate the below tree:
+![Image9](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud9.png)
 
-1. Download the latest version of the Jumio integration jar from [here](https://github.com/ForgeRock/Jumio-Auth-Tree-Node/releases/latest).
-2. Copy the jar file to the **WEB-INF/lib/** folder where AM is deployed.
-3. Restart the AM for the new plug-in to become available.
+## Testing
+1. To test the Journey, copy and paste the preview URL in an incognito window. 
+![Image10](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud10.png) 
+3. Login using ForgeRock Cloud credentials and Jumio’s NetVerify Service will prompt the user to start the verification process. Click Start.
+![Image11](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud11%20.png)
 
-**Jumio Initiate Node**: Initiates the Jumio transaction and redirects the user to the Netverify journey.
+3. The user will be directed to select their Region and to select ID type. 
+![Image12](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud12.png)
 
-**Jumio Decision Node**: Retrieves transaction result, updates the shared state and directs the user based on the outcome of the Netverify transaction.
+4. Take a photo of the front and back of the ID using the webcam or upload a photo from your computer
+![Image13](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud13.png)
+![Image14](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud14.png)
 
-## Login to Forgerock
+5. Once prompted, complete the face verification step.
+![Image15](https://github.com/Stuti-Rana/Jumio-Auth-Tree-Node/blob/patch-1/guideimages/Jumio_Cloud15.png) 
 
-You should already have a Forgerock instance and login information at this point. If you do not have access to Forgerock yet, please contact your point-of-contact at Forgerock.
-
-![Jumio](/guideimages/login0.jpeg)
-
-Log in using your given user ID and password.
-
-## Select a Realm
-
-Once you're logged in, you'll reach the Realm selection page. Select a Realm that you would like to add the **Netverify** workflow to.
-
-If you have not created a realm yet, you'll need to do so now.
-
-### Create a Realm
-
-To create a new Realm, click on the **+ New Realm** button.
-
-![Jumio](/guideimages/realm0.jpeg)
-
-Fill out all the required information you need for your Realm instance.
-
-For a test Realm to use solely with Netverify, you will only need to have a name for the Realm.
-
-![Jumio](/guideimages/realm1.jpeg)
-
-Click **Create** button once you've filled out all necessary information.
-
-## Setting up Netverify
-
-This next section will focus on setting up Netverify settings and getting a login workflow that includes Netverify journey.
-
-### Netverify Settings
-
-Navigate to your desired Realm Overview page. You can choose the realm you want by clicking on **REALMS** in the menu bar at the top of the page.
-
-![Jumio](/guideimages/setting0.jpeg)
-
-Once on the **Realm Overview** page, navigate to the **Services**, found on the leftside menu.
-
-![Jumio](/guideimages/setting1.jpeg)
-
-You should see **Jumio Service** listed on this page. If you do not, you have not installed the Jumio package yet.
-
-Select **Jumio Service** and fill out all the information on this page.
-
-![Jumio](/guideimages/setting2.jpeg)
-
-**Save Changes** once you've filled out the page.
-
-### Creating a Login Workflow
-
-We will not create a basic login workflow that includes the Netverify journey.
-
-On the leftside menu, click on **Authentication** and select **Trees**.
-
-Click **+ Create Tree** at the top of the page.
-
-![Jumio](/guideimages/tree0.jpeg)
-
-On the next page you'll name the tree. We'll name ours **netverify-sample-workflow**. Click **Create** once complete.
-
-![Jumio](/guideimages/tree1.jpeg)
-
-Next, you'll be brought to the tree creation page. The default tree provided already contains a **Start** and **Failure** node.
-
-![Jumio](/guideimages/tree2.jpeg)
-
-To start the workflow, we'll add **Username Collector**, **Jumio Initiate Node**, **Jumio Decision Node** and a **Polling Wait Node**.
-
-Connect **Start** to the **Username Collector** which connects to the front of the **Jumio Initiate Node**.
-
-**Jumio Initiate Node** *True* will go to a **Polling Wait Node**. *False* will go to **Failure**.
-
-The end **Polling Wait Node** will connect to the **Jumio Decision Node**.
-
-Our tree should look similar this.
-
-![Jumio](/guideimages/tree3.jpeg)
-
-Now, we'll configure the **Polling Wait Node**. 
-
-Select the first node and a menu should appear on the righthand side.
-
-Set **Seconds To Wait** to **30**. 
-
-This will make the system wait 75 seconds after the Netverify workflow has completed to try to ping Jumio for results using the **Jumio Decision Node**.
-
-![Jumio](/guideimages/tree4.jpeg)
-
-For the second part of the tree, pull the following nodes into the tree: **Polling Wait Node**, **Create Password**, **Provision Dynamic Account**, **Success**.
-
-Connect the **Jumio Decision Node** points as follows:
-
-- *Failed* and *Fraud* to **Failure**
-- *Unreadable* and *Unsupported* to beginning of **Jumio Initiate Node**
-- *Pending* to the new **Polling Wait Node** which connects back to the beginning of the **Jumio Decision Node**
-- *Success* connects to **Create Password**, then **Provision Dynamic Account**, then to **Success*
-
-The second **Polling Wait Node** can be set to 30 seconds. This will loop the **Jumio Decision Node** until the results from Netverify are no longer *Pending*.
-
-This portion of the free should look similar to this:
-
-![Jumio](/guideimages/tree5.jpeg)
-
-You can then click on the **Auto Layout** icon near the top and your tree will be straightened out. The end of your tree should look as follows.
-
-![Jumio](/guideimages/tree6.jpeg)
-
-Your Netverify tree should now be complete and you should can test the workflow.
-
-### Testing the Tree
-
-You can test the tree by simply typing your server url and include the url parameters of the realm and service you created the tree under.
-
-Example:
-https://domain.com?realm=MYREALM&service=MYSERVICE
+6. If the verification is successful the user will be successfully authenticated.
