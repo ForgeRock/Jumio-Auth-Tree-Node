@@ -33,40 +33,52 @@ class JumioUtils {
 
 		String auth = serviceConfig.token() + ":" + String.valueOf(serviceConfig.secret());
 		auth = Base64.getEncoder().encodeToString(auth.getBytes());
-		HttpURLConnection conn_auth;
-		URL url_auth;
+		HttpURLConnection conn_auth = null;
+		OutputStreamWriter wr_auth = null;
+		try {
+			URL url_auth;
 
-		url_auth = new URL(
-				"https://auth." + serviceConfig.serverUrl().toString() + "/oauth2/token?grant_type=client_credentials");
+			url_auth = new URL("https://auth." + serviceConfig.serverUrl().toString()
+					+ "/oauth2/token?grant_type=client_credentials");
 
-		conn_auth = (HttpURLConnection) url_auth.openConnection();
-		conn_auth.setDoOutput(true);
-		conn_auth.setDoInput(true);
-		conn_auth.setRequestMethod("POST");
-		conn_auth.setRequestProperty("Accept", "application/json");
-		conn_auth.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+			conn_auth = (HttpURLConnection) url_auth.openConnection();
+			conn_auth.setDoOutput(true);
+			conn_auth.setDoInput(true);
+			conn_auth.setRequestMethod("POST");
+			conn_auth.setRequestProperty("Accept", "application/json");
+			conn_auth.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 
-		conn_auth.setRequestProperty("Authorization", "Basic " + auth);
+			conn_auth.setRequestProperty("Authorization", "Basic " + auth);
 
-		String streamToString_auth;
-		OutputStreamWriter wr_auth;
-		int responseCode_auth;
+			String streamToString_auth;
+			int responseCode_auth;
 
-		wr_auth = new OutputStreamWriter(conn_auth.getOutputStream());
+			wr_auth = new OutputStreamWriter(conn_auth.getOutputStream());
 
-		wr_auth.flush();
-		streamToString_auth = JumioUtils.convertStreamToString(conn_auth.getInputStream());
-		responseCode_auth = conn_auth.getResponseCode();
+			wr_auth.flush();
+			streamToString_auth = JumioUtils.convertStreamToString(conn_auth.getInputStream());
+			responseCode_auth = conn_auth.getResponseCode();
 
-		if (responseCode_auth == 200) {
-			JSONObject jo_auth = new JSONObject(streamToString_auth);
-			retVal = jo_auth.getString("access_token");
-		} else {
-			throw new NodeProcessException("OAuth Access token could not be retrieved");
+			if (responseCode_auth == 200) {
+				JSONObject jo_auth = new JSONObject(streamToString_auth);
+				retVal = jo_auth.getString("access_token");
+			} else {
+				throw new NodeProcessException("OAuth Access token could not be retrieved");
+			}
+
+		} catch (Exception e) {
+			throw new Exception(e);
+		} finally {
+			try {
+				if (wr_auth != null)
+					wr_auth.close();
+				if (conn_auth != null)
+					conn_auth.disconnect();
+			} catch (Exception e) {
+				// Do nothing
+			}
 		}
 
-		wr_auth.close();
-		conn_auth.disconnect();
 		return retVal;
 	}
 

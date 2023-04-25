@@ -16,24 +16,21 @@
 
 package com.jumio.jumioAuthNode;
 
-import static com.jumio.jumioAuthNode.JumioConstants.CUSTOMER_INTERNAL_REFERENCE;
-import static com.jumio.jumioAuthNode.JumioConstants.ERROR_OUTCOME;
-import static com.jumio.jumioAuthNode.JumioConstants.ERROR_URL;
-import static com.jumio.jumioAuthNode.JumioConstants.FALSE_OUTCOME;
-import static com.jumio.jumioAuthNode.JumioConstants.SUCCESS_URL;
-import static com.jumio.jumioAuthNode.JumioConstants.WORKFLOW_EXECUTION_ID;
-import static com.jumio.jumioAuthNode.JumioConstants.AQUISITION_STATUS;
 import static com.jumio.jumioAuthNode.JumioConstants.ACCOUNT_ID;
+import static com.jumio.jumioAuthNode.JumioConstants.AQUISITION_STATUS;
+import static com.jumio.jumioAuthNode.JumioConstants.CUSTOMER_INTERNAL_REFERENCE;
+import static com.jumio.jumioAuthNode.JumioConstants.ERROR_URL;
+import static com.jumio.jumioAuthNode.JumioConstants.SUCCESS_URL;
 import static com.jumio.jumioAuthNode.JumioConstants.TRUE_OUTCOME;
+import static com.jumio.jumioAuthNode.JumioConstants.FALSE_OUTCOME;
+import static com.jumio.jumioAuthNode.JumioConstants.ERROR_OUTCOME;
 import static com.jumio.jumioAuthNode.JumioConstants.USER_REFERENCE;
+import static com.jumio.jumioAuthNode.JumioConstants.WORKFLOW_EXECUTION_ID;
 
 import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +42,7 @@ import org.forgerock.openam.auth.node.api.AbstractDecisionNode;
 import org.forgerock.openam.auth.node.api.Action;
 import org.forgerock.openam.auth.node.api.Node;
 import org.forgerock.openam.auth.node.api.NodeProcessException;
+import org.forgerock.openam.auth.node.api.NodeState;
 import org.forgerock.openam.auth.node.api.SharedStateConstants;
 import org.forgerock.openam.auth.node.api.TreeContext;
 import org.forgerock.openam.core.realms.Realm;
@@ -54,6 +52,7 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.assistedinject.Assisted;
 import com.iplanet.sso.SSOException;
 import com.sun.identity.authentication.spi.RedirectCallback;
@@ -66,7 +65,7 @@ public class JumioInitiateNode extends AbstractDecisionNode {
 
 	private final Logger logger = LoggerFactory.getLogger(JumioInitiateNode.class);
 	private final JumioService serviceConfig;
-	private String loggerPrefix = "[Jumio Initiate Node][Marketplace] ";
+	private String loggerPrefix = "[Jumio Initiate][Marketplace] ";
 
 	/**
 	 * Configuration for the node.
@@ -82,6 +81,10 @@ public class JumioInitiateNode extends AbstractDecisionNode {
 	@Inject
 	public JumioInitiateNode(@Assisted Realm realm, AnnotatedServiceRegistry serviceRegistry)
 			throws NodeProcessException {
+		
+		//If the service does not exist, the journey will go into an endless loop and never be able to load the first node,
+		//regardless of what that node is
+		
 		try {
 			this.serviceConfig = serviceRegistry.getRealmSingleton(JumioService.class, realm).get();
 		} catch (SSOException | SMSException e) {
@@ -97,38 +100,31 @@ public class JumioInitiateNode extends AbstractDecisionNode {
 
 	@Override
 	public Action process(TreeContext context) {
+		HttpURLConnection conn = null;
 		try {
 			logger.debug(loggerPrefix + "Started");
 			Map<String, List<String>> parameters = context.request.parameters;
-			JsonValue sharedState = context.sharedState;
+			NodeState ns = context.getStateFor(this);
+			
 			String streamToString, redirectURL, userReference;
-			userReference = sharedState.get(SharedStateConstants.USERNAME).asString();
-			
-			//TODO need to remove this for block
-			for(Iterator<String> i = parameters.keySet().iterator(); i.hasNext();) {
-				String thisKey = i.next();
-				String printMe = "Justin Check ParmKey: " + thisKey + " :: ParmVal: " + parameters.get(thisKey);
-				System.out.println(printMe);
-				logger.error(printMe);
-			}
-			
+			userReference = ns.get(SharedStateConstants.USERNAME).asString();
 
 			if (parameters.containsKey(AQUISITION_STATUS) && parameters.containsKey(CUSTOMER_INTERNAL_REFERENCE)
 					&& parameters.containsKey(WORKFLOW_EXECUTION_ID)) {
-				if (sharedState.isDefined(AQUISITION_STATUS) && sharedState.isDefined(CUSTOMER_INTERNAL_REFERENCE)
-						&& sharedState.isDefined(WORKFLOW_EXECUTION_ID)) {
+				if (ns.isDefined(AQUISITION_STATUS) && ns.isDefined(CUSTOMER_INTERNAL_REFERENCE)
+						&& ns.isDefined(WORKFLOW_EXECUTION_ID)) {
 					// We have looped back from a unsuccessful ID proofing attempt, remove
 					// sharedState and continue
-					sharedState.remove(AQUISITION_STATUS);
-					sharedState.remove(CUSTOMER_INTERNAL_REFERENCE);
-					sharedState.remove(WORKFLOW_EXECUTION_ID);
+					ns.remove(AQUISITION_STATUS);
+					ns.remove(CUSTOMER_INTERNAL_REFERENCE);
+					ns.remove(WORKFLOW_EXECUTION_ID);
 				} else {
 					// We have returned from redirect, store Jumio data in shared state and go to
 					// next node
-					sharedState.put(AQUISITION_STATUS, parameters.get(AQUISITION_STATUS).get(0));
-					sharedState.put(WORKFLOW_EXECUTION_ID, parameters.get(WORKFLOW_EXECUTION_ID).get(0));
-					sharedState.put(CUSTOMER_INTERNAL_REFERENCE, userReference);
-					sharedState.put(ACCOUNT_ID, parameters.get(ACCOUNT_ID).get(0));
+					ns.putShared(AQUISITION_STATUS, parameters.get(AQUISITION_STATUS).get(0));
+					ns.putShared(WORKFLOW_EXECUTION_ID, parameters.get(WORKFLOW_EXECUTION_ID).get(0));
+					ns.putShared(CUSTOMER_INTERNAL_REFERENCE, userReference);
+					ns.putShared(ACCOUNT_ID, parameters.get(ACCOUNT_ID).get(0));
 
 					if (logger.isInfoEnabled()) {
 						logger.info(loggerPrefix + "Returned from redirect.  Account ID: "
@@ -136,15 +132,13 @@ public class JumioInitiateNode extends AbstractDecisionNode {
 								+ parameters.get(AQUISITION_STATUS).get(0) + " Workflow Execution ID: "
 								+ parameters.get(WORKFLOW_EXECUTION_ID).get(0));
 					}
-					return Action.goTo(TRUE_OUTCOME).replaceSharedState(sharedState).build();
+					return Action.goTo(TRUE_OUTCOME).build();
 				}
 			}
 
 			URL url;
 
 			url = new URL("https://account." + serviceConfig.serverUrl().toString() + "/api/v1/accounts");
-
-			HttpURLConnection conn;
 
 			String accessToken = JumioUtils.getAccessToken(serviceConfig);
 
@@ -201,6 +195,15 @@ public class JumioInitiateNode extends AbstractDecisionNode {
 			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.getMessage());
 			return Action.goTo(JumioConstants.ERROR_OUTCOME).build();
 		}
+		finally {
+			try {
+				if (conn!=null)
+					conn.disconnect();
+			}
+			catch(Exception e) {
+				//Do nothing
+			}
+		}
 	}
 
 	/**
@@ -209,13 +212,12 @@ public class JumioInitiateNode extends AbstractDecisionNode {
 	public static class JumioInitiateOutcomeProvider implements org.forgerock.openam.auth.node.api.OutcomeProvider {
 		@Override
 		public List<Outcome> getOutcomes(PreferredLocales locales, JsonValue nodeAttributes) {
-			return new ArrayList<Outcome>() {
-				{
-					add(new Outcome(TRUE_OUTCOME, TRUE_OUTCOME));
-					add(new Outcome(FALSE_OUTCOME, FALSE_OUTCOME));
-					add(new Outcome(ERROR_OUTCOME, ERROR_OUTCOME));
-				}
-			};
+			return ImmutableList.of(
+					new Outcome(TRUE_OUTCOME, TRUE_OUTCOME),
+					new Outcome(FALSE_OUTCOME, FALSE_OUTCOME),
+					new Outcome(ERROR_OUTCOME, ERROR_OUTCOME)
+
+			);
 		}
 	}
 }
