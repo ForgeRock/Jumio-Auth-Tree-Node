@@ -18,29 +18,22 @@ package com.jumio.jumioAuthNode;
 
 import static com.jumio.jumioAuthNode.JumioConstants.ACCOUNT_ID;
 import static com.jumio.jumioAuthNode.JumioConstants.ACQUIRED;
-import static com.jumio.jumioAuthNode.JumioConstants.ATTRIBUTES;
 import static com.jumio.jumioAuthNode.JumioConstants.DECISION;
 import static com.jumio.jumioAuthNode.JumioConstants.ERROR_OUTCOME;
 import static com.jumio.jumioAuthNode.JumioConstants.INITIATED;
 import static com.jumio.jumioAuthNode.JumioConstants.NOT_EXECUTED;
-import static com.jumio.jumioAuthNode.JumioConstants.OUTCOME;
 import static com.jumio.jumioAuthNode.JumioConstants.PASSED;
 import static com.jumio.jumioAuthNode.JumioConstants.PENDING_OUTCOME;
 import static com.jumio.jumioAuthNode.JumioConstants.PROCESSED;
 import static com.jumio.jumioAuthNode.JumioConstants.REJECTED;
 import static com.jumio.jumioAuthNode.JumioConstants.STATUS;
 import static com.jumio.jumioAuthNode.JumioConstants.TYPE;
-import static com.jumio.jumioAuthNode.JumioConstants.UID;
-import static com.jumio.jumioAuthNode.JumioConstants.USERNAME;
-import static com.jumio.jumioAuthNode.JumioConstants.USER_INFO;
-import static com.jumio.jumioAuthNode.JumioConstants.USER_NAMES;
 import static com.jumio.jumioAuthNode.JumioConstants.WARNING;
 import static com.jumio.jumioAuthNode.JumioConstants.WORKFLOW_EXECUTION;
 import static com.jumio.jumioAuthNode.JumioConstants.WORKFLOW_EXECUTION_ID;
-import static org.forgerock.json.JsonValue.array;
-import static org.forgerock.json.JsonValue.json;
-import static org.forgerock.json.JsonValue.object;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Date;
@@ -57,12 +50,12 @@ import org.forgerock.openam.auth.node.api.AbstractDecisionNode;
 import org.forgerock.openam.auth.node.api.Action;
 import org.forgerock.openam.auth.node.api.Node;
 import org.forgerock.openam.auth.node.api.NodeProcessException;
+import org.forgerock.openam.auth.node.api.NodeState;
 import org.forgerock.openam.auth.node.api.TreeContext;
 import org.forgerock.openam.core.realms.Realm;
 import org.forgerock.openam.sm.AnnotatedServiceRegistry;
 import org.forgerock.util.i18n.PreferredLocales;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -79,7 +72,7 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 	private final Logger logger = LoggerFactory.getLogger(JumioDecisionNode.class);
 	private final JumioService serviceConfig;
 	private final Config config;
-	private String loggerPrefix = "[Jumio Decision Node][Marketplace] ";
+	private String loggerPrefix = "[Jumio Decision][Marketplace] ";
 	private static final String BUNDLE = JumioDecisionNode.class.getName();
 
 	/**
@@ -126,73 +119,64 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 	private JSONObject getVerificationResults(String wfExID, String acctID) throws Exception {
 		JSONObject result = getRetrievalMessage("https://retrieval." + serviceConfig.serverUrl().toString()
 				+ "/api/v1/accounts/" + acctID + "/workflow-executions/" + wfExID);
-
-
-		//JSONObject jsonObj = getRetrievalMessage("https://retrieval." + serviceConfig.serverUrl().toString() + "/api/v1/accounts/" + acctID + "/workflow-executions/" + wfExID);
-
-		/*
-		result = jsonObj.getJSONObject("document");
-		// Add the customerid, merchantReportingCriteria, merchantScanReference
-		result.put(SCAN_REFERENCE, wfExID);
-		JSONObject t = jsonObj.getJSONObject("transaction");
-		result.put("customerId", t.getString("customerId"));
-
-		// Check the ID verification and return if not APPROVED_VERIFIED with right
-		// outcome.
-		String status = result.getString("status");
-		if (status.equalsIgnoreCase("DENIED_FRAUD")) {
-			result.put(OUTCOME, REJECTED);
-			return result;
-		} else if (status.equalsIgnoreCase(UNSUPPORTED_ID_TYPE) || status.equalsIgnoreCase(UNSUPPORTED_ID_COUNTRY)) {
-			result.put(OUTCOME, WARNING);
-			return result;
-
-		} 
-
-		// Now check if selfie matches image on the ID.
-		JSONObject v = (JSONObject) jsonObj.get(VERIFICATION);
-		JSONObject iv = (JSONObject) v.get(IDENTITY_VERIFICATION);
-		String similarity = iv.get(SIMILARITY).toString();
-		similarity = similarity.replaceAll("\"", "");
-		if (similarity.equals(MATCH)) {
-			result.put(OUTCOME, PASSED);
-		}
-		if (similarity.equals(NO_MATCH)) {
-			result.put(OUTCOME, REJECTED);
-		}
-		
-		*/
-
-
 		return result;
 	}
 
 	private JSONObject getRetrievalMessage(String serverURL) throws Exception {
-		
+
 		String accessToken = JumioUtils.getAccessToken(serviceConfig);
 
 		URL url = new URL(serverURL);
+		JSONObject retVal = null;
 
-		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-		conn.setDoOutput(true);
-		conn.setDoInput(true);
-		conn.setRequestMethod("GET");
-		conn.setRequestProperty("Accept", "application/json");
-		conn.setRequestProperty("Content-Type", "application/json");
-		conn.setRequestProperty("User-Agent", "Jumio ForgeRock/1.1.2");
-		conn.setRequestProperty("Authorization", "Bearer " + accessToken);
-		JSONObject retVal = new JSONObject(JumioUtils.convertStreamToString(conn.getInputStream()));
-		conn.disconnect();
-		
+		HttpURLConnection conn = null;
+		try {
+			conn = (HttpURLConnection) url.openConnection();
+			conn.setDoOutput(true);
+			conn.setDoInput(true);
+			conn.setRequestMethod("GET");
+			conn.setRequestProperty("Accept", "application/json");
+			conn.setRequestProperty("Content-Type", "application/json");
+			conn.setRequestProperty("User-Agent", "Jumio ForgeRock/1.1.2");
+			conn.setRequestProperty("Authorization", "Bearer " + accessToken);
+			retVal = new JSONObject(JumioUtils.convertStreamToString(conn.getInputStream()));
+		} catch (Exception e) {
+			throw new Exception(e);
+		} finally {
+			try {
+
+				if (conn != null) {
+					conn.disconnect();
+				}
+			} catch (Exception e) {
+				// Do nothing
+			}
+
+		}
+
 		return retVal;
+	}
+	
+	
+	private JsonValue setObjectAttributes(JsonValue objAttr, Map<String, Object> flattenedJsonMap, Map<String, String> map2) {
+		logger.error(loggerPrefix + "Here is the objAttr before any updates: " + objAttr);
+		for (Map.Entry<String, String> entry : map2.entrySet()) {	 
+			Object thisValues = flattenedJsonMap.get(entry.getKey());
+			objAttr.add(entry.getValue(), thisValues);
+			logger.error(loggerPrefix + "Here is the objAttr: " + objAttr);
+		}
+		logger.error(loggerPrefix + "Here is the objAttr after the updates: " + objAttr);
+		
+		return objAttr;
 	}
 
 	@Override
 	public Action process(TreeContext context) {
 		try {
-			JsonValue sharedState = context.sharedState;
-			String wfExID = sharedState.get(WORKFLOW_EXECUTION_ID).asString();
-			String acctID = sharedState.get(ACCOUNT_ID).asString();
+			NodeState ns = context.getStateFor(this);
+			
+			String wfExID = ns.get(WORKFLOW_EXECUTION_ID).asString();
+			String acctID = ns.get(ACCOUNT_ID).asString();
 
 			String jumioStatus = checkStatus(wfExID, acctID);
 			if (StringUtils.equalsIgnoreCase(jumioStatus, INITIATED) || StringUtils.equalsIgnoreCase(jumioStatus, ACQUIRED)) {
@@ -202,86 +186,35 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 				logger.info(loggerPrefix + "Id verification complete.  Proceeding");
 				JSONObject results = getVerificationResults(wfExID, acctID);
 
-
-				// TODO: Call cfgAccountMapperConfiguration to get which Jumio attributes the
-				// customer wants to map to FR
-				// attributes
 				String outcome =  results.getJSONObject(DECISION).getString(TYPE);
 				switch (outcome) {
 				case PASSED:
-					sharedState.put("RESULTS", results.toString());
+					ns.putShared("RESULTS", results.toString());
 					JSONArray extractionJSON = results.getJSONObject("capabilities").getJSONArray("extraction");
 					if (extractionJSON!=null && extractionJSON.get(0)!=null && ((JSONObject)extractionJSON.get(0)).getJSONObject("data")!=null) {
 						Map<String, Object> flattenedJsonMap = ((JSONObject)extractionJSON.get(0)).getJSONObject("data").toMap();						
 						Map<String, String> map2 = config.cfgAccountMapperConfiguration();
-						try {
-							JsonValue attributes = json(object(map2.size() + 1));
-							String username = sharedState.get(USERNAME).asString();
-							List<Object> uidArray = array();
-							uidArray.add(username);
-							attributes.put(UID, uidArray);
-
-							for (Map.Entry<String, String> entry : map2.entrySet()) {
-								attributes.put(entry.getValue(), array(flattenedJsonMap.get(entry.getKey())));
-							}
-							JsonValue userInfo = json(object());
-							userInfo.put(ATTRIBUTES, attributes);
-							JsonValue userNames = json(object(1));
-							List<Object> usernameArray = array();
-							usernameArray.add(username);
-
-							userNames.put(USERNAME, usernameArray);
-							userInfo.put(USER_NAMES, userNames);
-
-							sharedState.put(USER_INFO, userInfo);
-
-						} catch (JSONException je) {
-							if (logger.isInfoEnabled()) {
-								logger.info(loggerPrefix + je.getMessage());
-							}
-							throw new NodeProcessException(je);
-						}
+						JsonValue objAttr = ns.get("objectAttributes");
+						objAttr = setObjectAttributes(objAttr, flattenedJsonMap, map2);
+						JsonValue newObjAttr = setObjectAttributes(objAttr, flattenedJsonMap, map2);
+						ns.putShared("objectAttributes", newObjAttr);
 					}
-					return Action.goTo(PASSED).replaceSharedState(sharedState).build();
+					return Action.goTo(PASSED).build();
 				case REJECTED:
 					return Action.goTo(REJECTED).build();
 				case WARNING:
-					sharedState.put("RESULTS", results.toString());
+					ns.putShared("RESULTS", results.toString());
 					JSONArray extractionJSON2 = results.getJSONObject("capabilities").getJSONArray("extraction");
 					if (extractionJSON2!=null && extractionJSON2.get(0)!=null && ((JSONObject)extractionJSON2.get(0)).getJSONObject("data")!=null) {
 						Map<String, Object> flattenedJsonMap = ((JSONObject)extractionJSON2.get(0)).getJSONObject("data").toMap();						
 						Map<String, String> map2 = config.cfgAccountMapperConfiguration();
-						try {
-							JsonValue attributes = json(object(map2.size() + 1));
-							String username = sharedState.get(USERNAME).asString();
-							List<Object> uidArray = array();
-							uidArray.add(username);
-							attributes.put(UID, uidArray);
-
-							for (Map.Entry<String, String> entry : map2.entrySet()) {
-								attributes.put(entry.getValue(), array(flattenedJsonMap.get(entry.getKey())));
-							}
-							JsonValue userInfo = json(object());
-							userInfo.put(ATTRIBUTES, attributes);
-							JsonValue userNames = json(object(1));
-							List<Object> usernameArray = array();
-							usernameArray.add(username);
-
-							userNames.put(USERNAME, usernameArray);
-							userInfo.put(USER_NAMES, userNames);
-
-							sharedState.put(USER_INFO, userInfo);
-
-						} catch (JSONException je) {
-							if (logger.isInfoEnabled()) {
-								logger.info(loggerPrefix + je.getMessage());
-							}
-							throw new NodeProcessException(je);
-						}
+						JsonValue objAttr = ns.get("objectAttributes");
+						JsonValue newObjAttr = setObjectAttributes(objAttr, flattenedJsonMap, map2);
+						ns.putShared("objectAttributes", newObjAttr);
 					}
-					return Action.goTo(WARNING).replaceSharedState(sharedState).build();
+					return Action.goTo(WARNING).build();
 				default:
-					return Action.goTo(NOT_EXECUTED).replaceSharedState(sharedState).build();
+					return Action.goTo(NOT_EXECUTED).build();
 				}
 			} else {
 				context.getStateFor(this).putShared(loggerPrefix + "Error Status from Jumio", new Date() + ": " + jumioStatus);
@@ -289,10 +222,12 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 			}
 
 		} catch (Exception ex) {
-			logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
 			logger.error(loggerPrefix + "Exception occurred: " + ex.getStackTrace());
-			ex.printStackTrace();
 			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.getMessage());
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			ex.printStackTrace(pw);
+			context.getStateFor(this).putShared(loggerPrefix + "StackTracke", new Date() + ": " + sw.toString());
 			return Action.goTo(JumioConstants.ERROR_OUTCOME).build();
 		}
 

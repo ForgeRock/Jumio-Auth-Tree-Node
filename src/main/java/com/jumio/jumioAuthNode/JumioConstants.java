@@ -31,7 +31,7 @@ class JumioConstants {
     static final String WORKFLOW_EXECUTION = "workflowExecution";
     static final String STATUS = "status";
     static final String OUTCOME = "outcome";
-    static final String USER_INFO = "userInfo";
+    //static final String USER_INFO = "userInfo";
     static final String ATTRIBUTES = "attributes";
     static final String USER_NAMES = "userNames";
     static final String USERNAME = "username";
