@@ -19,15 +19,17 @@ package com.jumio.jumioAuthNode;
 import static com.jumio.jumioAuthNode.JumioConstants.ACCOUNT_ID;
 import static com.jumio.jumioAuthNode.JumioConstants.AQUISITION_STATUS;
 import static com.jumio.jumioAuthNode.JumioConstants.CUSTOMER_INTERNAL_REFERENCE;
+import static com.jumio.jumioAuthNode.JumioConstants.ERROR_OUTCOME;
 import static com.jumio.jumioAuthNode.JumioConstants.ERROR_URL;
+import static com.jumio.jumioAuthNode.JumioConstants.FALSE_OUTCOME;
 import static com.jumio.jumioAuthNode.JumioConstants.SUCCESS_URL;
 import static com.jumio.jumioAuthNode.JumioConstants.TRUE_OUTCOME;
-import static com.jumio.jumioAuthNode.JumioConstants.FALSE_OUTCOME;
-import static com.jumio.jumioAuthNode.JumioConstants.ERROR_OUTCOME;
 import static com.jumio.jumioAuthNode.JumioConstants.USER_REFERENCE;
 import static com.jumio.jumioAuthNode.JumioConstants.WORKFLOW_EXECUTION_ID;
 
 import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Date;
@@ -189,10 +191,12 @@ public class JumioInitiateNode extends AbstractDecisionNode {
 			redirectCallback.setTrackingCookie(true);
 			return Action.send(redirectCallback).build();
 		} catch (Exception ex) {
-			logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
 			logger.error(loggerPrefix + "Exception occurred: " + ex.getStackTrace());
-			ex.printStackTrace();
 			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.getMessage());
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			ex.printStackTrace(pw);
+			context.getStateFor(this).putShared(loggerPrefix + "StackTracke", new Date() + ": " + sw.toString());
 			return Action.goTo(JumioConstants.ERROR_OUTCOME).build();
 		}
 		finally {

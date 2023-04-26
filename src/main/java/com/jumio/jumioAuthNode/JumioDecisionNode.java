@@ -18,7 +18,6 @@ package com.jumio.jumioAuthNode;
 
 import static com.jumio.jumioAuthNode.JumioConstants.ACCOUNT_ID;
 import static com.jumio.jumioAuthNode.JumioConstants.ACQUIRED;
-import static com.jumio.jumioAuthNode.JumioConstants.ATTRIBUTES;
 import static com.jumio.jumioAuthNode.JumioConstants.DECISION;
 import static com.jumio.jumioAuthNode.JumioConstants.ERROR_OUTCOME;
 import static com.jumio.jumioAuthNode.JumioConstants.INITIATED;
@@ -29,17 +28,12 @@ import static com.jumio.jumioAuthNode.JumioConstants.PROCESSED;
 import static com.jumio.jumioAuthNode.JumioConstants.REJECTED;
 import static com.jumio.jumioAuthNode.JumioConstants.STATUS;
 import static com.jumio.jumioAuthNode.JumioConstants.TYPE;
-import static com.jumio.jumioAuthNode.JumioConstants.UID;
-import static com.jumio.jumioAuthNode.JumioConstants.USERNAME;
-import static com.jumio.jumioAuthNode.JumioConstants.USER_INFO;
-import static com.jumio.jumioAuthNode.JumioConstants.USER_NAMES;
 import static com.jumio.jumioAuthNode.JumioConstants.WARNING;
 import static com.jumio.jumioAuthNode.JumioConstants.WORKFLOW_EXECUTION;
 import static com.jumio.jumioAuthNode.JumioConstants.WORKFLOW_EXECUTION_ID;
-import static org.forgerock.json.JsonValue.array;
-import static org.forgerock.json.JsonValue.json;
-import static org.forgerock.json.JsonValue.object;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Date;
@@ -62,7 +56,6 @@ import org.forgerock.openam.core.realms.Realm;
 import org.forgerock.openam.sm.AnnotatedServiceRegistry;
 import org.forgerock.util.i18n.PreferredLocales;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -163,6 +156,19 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 
 		return retVal;
 	}
+	
+	
+	private JsonValue setObjectAttributes(JsonValue objAttr, Map<String, Object> flattenedJsonMap, Map<String, String> map2) {
+		logger.error(loggerPrefix + "Here is the objAttr before any updates: " + objAttr);
+		for (Map.Entry<String, String> entry : map2.entrySet()) {	 
+			Object thisValues = flattenedJsonMap.get(entry.getKey());
+			objAttr.add(entry.getValue(), thisValues);
+			logger.error(loggerPrefix + "Here is the objAttr: " + objAttr);
+		}
+		logger.error(loggerPrefix + "Here is the objAttr after the updates: " + objAttr);
+		
+		return objAttr;
+	}
 
 	@Override
 	public Action process(TreeContext context) {
@@ -180,10 +186,6 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 				logger.info(loggerPrefix + "Id verification complete.  Proceeding");
 				JSONObject results = getVerificationResults(wfExID, acctID);
 
-
-				// TODO: Call cfgAccountMapperConfiguration to get which Jumio attributes the
-				// customer wants to map to FR
-				// attributes
 				String outcome =  results.getJSONObject(DECISION).getString(TYPE);
 				switch (outcome) {
 				case PASSED:
@@ -192,33 +194,10 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 					if (extractionJSON!=null && extractionJSON.get(0)!=null && ((JSONObject)extractionJSON.get(0)).getJSONObject("data")!=null) {
 						Map<String, Object> flattenedJsonMap = ((JSONObject)extractionJSON.get(0)).getJSONObject("data").toMap();						
 						Map<String, String> map2 = config.cfgAccountMapperConfiguration();
-						try {
-							JsonValue attributes = json(object(map2.size() + 1));
-							String username = ns.get(USERNAME).asString();
-							List<Object> uidArray = array();
-							uidArray.add(username);
-							attributes.put(UID, uidArray);
-
-							for (Map.Entry<String, String> entry : map2.entrySet()) {
-								attributes.put(entry.getValue(), array(flattenedJsonMap.get(entry.getKey())));
-							}
-							JsonValue userInfo = json(object());
-							userInfo.put(ATTRIBUTES, attributes);
-							JsonValue userNames = json(object(1));
-							List<Object> usernameArray = array();
-							usernameArray.add(username);
-
-							userNames.put(USERNAME, usernameArray);
-							userInfo.put(USER_NAMES, userNames);
-
-							ns.putShared(USER_INFO, userInfo);
-
-						} catch (JSONException je) {
-							if (logger.isInfoEnabled()) {
-								logger.info(loggerPrefix + je.getMessage());
-							}
-							throw new NodeProcessException(je);
-						}
+						JsonValue objAttr = ns.get("objectAttributes");
+						objAttr = setObjectAttributes(objAttr, flattenedJsonMap, map2);
+						JsonValue newObjAttr = setObjectAttributes(objAttr, flattenedJsonMap, map2);
+						ns.putShared("objectAttributes", newObjAttr);
 					}
 					return Action.goTo(PASSED).build();
 				case REJECTED:
@@ -229,33 +208,9 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 					if (extractionJSON2!=null && extractionJSON2.get(0)!=null && ((JSONObject)extractionJSON2.get(0)).getJSONObject("data")!=null) {
 						Map<String, Object> flattenedJsonMap = ((JSONObject)extractionJSON2.get(0)).getJSONObject("data").toMap();						
 						Map<String, String> map2 = config.cfgAccountMapperConfiguration();
-						try {
-							JsonValue attributes = json(object(map2.size() + 1));
-							String username = ns.get(USERNAME).asString();
-							List<Object> uidArray = array();
-							uidArray.add(username);
-							attributes.put(UID, uidArray);
-
-							for (Map.Entry<String, String> entry : map2.entrySet()) {
-								attributes.put(entry.getValue(), array(flattenedJsonMap.get(entry.getKey())));
-							}
-							JsonValue userInfo = json(object());
-							userInfo.put(ATTRIBUTES, attributes);
-							JsonValue userNames = json(object(1));
-							List<Object> usernameArray = array();
-							usernameArray.add(username);
-
-							userNames.put(USERNAME, usernameArray);
-							userInfo.put(USER_NAMES, userNames);
-
-							ns.putShared(USER_INFO, userInfo);
-
-						} catch (JSONException je) {
-							if (logger.isInfoEnabled()) {
-								logger.info(loggerPrefix + je.getMessage());
-							}
-							throw new NodeProcessException(je);
-						}
+						JsonValue objAttr = ns.get("objectAttributes");
+						JsonValue newObjAttr = setObjectAttributes(objAttr, flattenedJsonMap, map2);
+						ns.putShared("objectAttributes", newObjAttr);
 					}
 					return Action.goTo(WARNING).build();
 				default:
@@ -267,10 +222,12 @@ public class JumioDecisionNode extends AbstractDecisionNode {
 			}
 
 		} catch (Exception ex) {
-			logger.error(loggerPrefix + "Exception occurred: " + ex.getMessage());
 			logger.error(loggerPrefix + "Exception occurred: " + ex.getStackTrace());
-			ex.printStackTrace();
 			context.getStateFor(this).putShared(loggerPrefix + "Exception", new Date() + ": " + ex.getMessage());
+			StringWriter sw = new StringWriter();
+			PrintWriter pw = new PrintWriter(sw);
+			ex.printStackTrace(pw);
+			context.getStateFor(this).putShared(loggerPrefix + "StackTracke", new Date() + ": " + sw.toString());
 			return Action.goTo(JumioConstants.ERROR_OUTCOME).build();
 		}
 

@@ -19,7 +19,7 @@
 	<artifactId>jumioAuthNode</artifactId>
 
 	<groupId>com.jumio</groupId>
-	<version>1.0.20</version>
+	<version>1.0.28</version>
 	<name>Template for an Auth Tree Node maven project</name>
 	<description>An Authentication Tree Node for ForgeRock's Identity Platform</description>
 
